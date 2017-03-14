@@ -167,6 +167,7 @@ class Slice(Model, AuditMixinNullable, ImportMixin):
             'slice_id': self.id,
             'slice_name': self.slice_name,
             'slice_url': self.slice_url,
+            'column_formats': self.datasource.column_formats,
         }
 
     @property
