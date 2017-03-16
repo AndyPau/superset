@@ -383,14 +383,15 @@ class SqlaTable(Model, BaseDatasource):
             inner_select_exprs = []
             inner_groupby_exprs = []
             for s in groupby:
-                col = cols[s]
-                outer = col.sqla_col
-                inner = col.sqla_col.label(col.column_name + '__')
+                if s <> None:
+                    col = cols[s]
+                    outer = col.sqla_col
+                    inner = col.sqla_col.label(col.column_name + '__')
 
-                groupby_exprs.append(outer)
-                select_exprs.append(outer)
-                inner_groupby_exprs.append(inner)
-                inner_select_exprs.append(inner)
+                    groupby_exprs.append(outer)
+                    select_exprs.append(outer)
+                    inner_groupby_exprs.append(inner)
+                    inner_select_exprs.append(inner)
         elif columns:
             for s in columns:
                 select_exprs.append(cols[s].sqla_col)
