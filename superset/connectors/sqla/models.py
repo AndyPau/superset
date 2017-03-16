@@ -383,7 +383,7 @@ class SqlaTable(Model, BaseDatasource):
             inner_select_exprs = []
             inner_groupby_exprs = []
             for s in groupby:
-                if s <> None:
+                if s is not None:
                     col = cols[s]
                     outer = col.sqla_col
                     inner = col.sqla_col.label(col.column_name + '__')
