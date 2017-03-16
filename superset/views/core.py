@@ -1792,7 +1792,10 @@ class Superset(BaseSupersetView):
         metrics = []
         for column_name, config in data.get('columns').items():
             is_dim = config.get('is_dim', False)
-            col = models.TableColumn(
+            SqlaTable = ConnectorRegistry.sources['table']
+            TableColumn = SqlaTable.column_cls
+            SqlMetric = SqlaTable.metric_cls
+            col = TableColumn(
                 column_name=column_name,
                 filterable=is_dim,
                 groupby=is_dim,
@@ -1804,18 +1807,18 @@ class Superset(BaseSupersetView):
             agg = config.get('agg')
             if agg:
                 if agg == 'count_distinct':
-                    metrics.append(models.SqlMetric(
+                    metrics.append(SqlMetric(
                         metric_name="{agg}__{column_name}".format(**locals()),
                         expression="COUNT(DISTINCT {column_name})"
                         .format(**locals()),
                     ))
                 else:
-                    metrics.append(models.SqlMetric(
+                    metrics.append(SqlMetric(
                         metric_name="{agg}__{column_name}".format(**locals()),
                         expression="{agg}({column_name})".format(**locals()),
                     ))
         if not metrics:
-            metrics.append(models.SqlMetric(
+            metrics.append(SqlMetric(
                 metric_name="count".format(**locals()),
                 expression="count(*)".format(**locals()),
             ))
@@ -2182,7 +2185,8 @@ class Superset(BaseSupersetView):
     def refresh_datasources(self):
         """endpoint that refreshes druid datasources metadata"""
         session = db.session()
-        DruidCluster = ConnectorRegistry.sources['druid']
+        DruidDatasource = ConnectorRegistry.sources['druid']
+        DruidCluster = DruidDatasource.cluster_class
         for cluster in session.query(DruidCluster).all():
             cluster_name = cluster.cluster_name
             try:
