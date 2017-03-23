@@ -27,7 +27,7 @@ function worldMapChart(slice, payload) {
 
   const colorScale = d3.scale.linear()
     .domain([ext[0], ext[1]])
-    .range(['#FFF', 'black']);
+    .range(['#FFFF77', '#FF8800']);
 
   data = data.map((d) => Object.assign({}, d, {
     radius: radiusScale(d.m2),
@@ -47,15 +47,15 @@ function worldMapChart(slice, payload) {
     element: slice.container.get(0),
     data,
     fills: {
-      defaultFill: '#ddd',
+      defaultFill: '#33CCFF',
     },
     geographyConfig: {
       popupOnHover: true,
       highlightOnHover: true,
       borderWidth: 1,
-      borderColor: '#fff',
+      borderColor: '#AAAAAA',
       highlightBorderColor: '#fff',
-      highlightFillColor: '#005a63',
+      highlightFillColor: '#FF8800',
       highlightBorderWidth: 1,
       popupTemplate: (geo, d) => (
         `<div class="hoverinfo"><strong>${d.name}</strong><br>${f(d.m1)}</div>`
