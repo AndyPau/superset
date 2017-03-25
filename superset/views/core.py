@@ -983,14 +983,11 @@ class Superset(BaseSupersetView):
         if request.args.get("query") == "true":
             try:
                 query_obj = viz_obj.query_obj()
-                engine = viz_obj.datasource.database.get_sqla_engine() \
-                    if datasource_type == 'table' \
-                    else viz_obj.datasource.cluster.get_pydruid_client()
                 if datasource_type == 'druid':
                     # only retrive first phase query for druid
                     query_obj['phase'] = 1
                 query = viz_obj.datasource.get_query_str(
-                    engine, datetime.now(), **query_obj)
+                    datetime.now(), **query_obj)
             except Exception as e:
                 return json_error_response(e)
             return Response(
@@ -1784,6 +1781,7 @@ class Superset(BaseSupersetView):
                 filterable=is_dim,
                 groupby=is_dim,
                 is_dttm=config.get('is_date', False),
+                type=config.get('type', False),
             )
             cols.append(col)
             if is_dim:
@@ -2087,7 +2085,6 @@ class Superset(BaseSupersetView):
             return json_error_response(DATASOURCE_ACCESS_ERR)
         return json_success(json.dumps(datasource.data))
 
-    @has_access
     @expose("/queries/<last_updated_ms>")
     def queries(self, last_updated_ms):
         """Get the updated queries."""
