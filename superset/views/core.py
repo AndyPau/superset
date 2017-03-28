@@ -9,7 +9,6 @@ import logging
 import pandas as pd
 import pickle
 import re
-import sys
 import time
 import traceback
 import zlib
@@ -130,7 +129,7 @@ def check_ownership(obj, raise_if_false=True):
         return False
 
     security_exception = utils.SupersetSecurityException(
-              "You don't have the rights to alter [{}]".format(obj))
+        "You don't have the rights to alter [{}]".format(obj))
 
     if g.user.is_anonymous():
         if raise_if_false:
@@ -762,8 +761,8 @@ class Superset(BaseSupersetView):
         granted_perms = []
         for datasource in datasources:
             view_menu_perm = sm.find_permission_view_menu(
-                    view_menu_name=datasource.perm,
-                    permission_name='datasource_access')
+                view_menu_name=datasource.perm,
+                permission_name='datasource_access')
             # prevent creating empty permissions
             if view_menu_perm and view_menu_perm.view_menu:
                 role.permissions.append(view_menu_perm)
@@ -1126,8 +1125,11 @@ class Superset(BaseSupersetView):
         """
         # TODO: Cache endpoint by user, datasource and column
         datasource_class = ConnectorRegistry.sources[datasource_type]
-        datasource = db.session.query(
-            datasource_class).filter_by(id=datasource_id).first()
+        datasource = (
+            db.session.query(datasource_class)
+            .filter_by(id=datasource_id)
+            .first()
+        )
 
         if not datasource:
             return json_error_response(DATASOURCE_MISSING_ERR)
@@ -1214,8 +1216,12 @@ class Superset(BaseSupersetView):
     @expose("/checkbox/<model_view>/<id_>/<attr>/<value>", methods=['GET'])
     def checkbox(self, model_view, id_, attr, value):
         """endpoint for checking/unchecking any boolean in a sqla model"""
-        Col = ConnectorRegistry.sources['table'].column_cls
-        obj = db.session.query(Col).filter_by(id=id_).first()
+        modelview_to_model = {
+            'TableColumnInlineView':
+                ConnectorRegistry.sources['table'].column_class,
+        }
+        model = modelview_to_model[model_view]
+        obj = db.session.query(model).filter_by(id=id_).first()
         if obj:
             setattr(obj, attr, value == 'true')
             db.session.commit()
@@ -1750,6 +1756,7 @@ class Superset(BaseSupersetView):
     @expose("/sqllab_viz/", methods=['POST'])
     @log_this
     def sqllab_viz(self):
+        SqlaTable = ConnectorRegistry.sources['table']
         data = json.loads(request.form.get('data'))
         table_name = data.get('datasourceName')
         viz_type = data.get('chartType')
@@ -1771,8 +1778,8 @@ class Superset(BaseSupersetView):
         for column_name, config in data.get('columns').items():
             is_dim = config.get('is_dim', False)
             SqlaTable = ConnectorRegistry.sources['table']
-            TableColumn = SqlaTable.column_cls
-            SqlMetric = SqlaTable.metric_cls
+            TableColumn = SqlaTable.column_class
+            SqlMetric = SqlaTable.metric_class
             col = TableColumn(
                 column_name=column_name,
                 filterable=is_dim,
@@ -2158,32 +2165,6 @@ class Superset(BaseSupersetView):
             status=200,
             mimetype="application/json")
 
-    @has_access
-    @expose("/refresh_datasources/")
-    def refresh_datasources(self):
-        """endpoint that refreshes druid datasources metadata"""
-        session = db.session()
-        DruidDatasource = ConnectorRegistry.sources['druid']
-        DruidCluster = DruidDatasource.cluster_class
-        for cluster in session.query(DruidCluster).all():
-            cluster_name = cluster.cluster_name
-            try:
-                cluster.refresh_datasources()
-            except Exception as e:
-                flash(
-                    "Error while processing cluster '{}'\n{}".format(
-                        cluster_name, utils.error_msg_from_exception(e)),
-                    "danger")
-                logging.exception(e)
-                return redirect('/druidclustermodelview/list/')
-            cluster.metadata_last_refreshed = datetime.now()
-            flash(
-                "Refreshed metadata from cluster "
-                "[" + cluster.cluster_name + "]",
-                'info')
-        session.commit()
-        return redirect("/druiddatasourcemodelview/list/")
-
     @app.errorhandler(500)
     def show_traceback(self):
         return render_template(
@@ -2256,16 +2237,6 @@ class Superset(BaseSupersetView):
             bootstrap_data=json.dumps(d, default=utils.json_iso_dttm_ser)
         )
 appbuilder.add_view_no_menu(Superset)
-
-if config['DRUID_IS_ACTIVE']:
-    appbuilder.add_link(
-        "Refresh Druid Metadata",
-        label=__("Refresh Druid Metadata"),
-        href='/superset/refresh_datasources/',
-        category='Sources',
-        category_label=__("Sources"),
-        category_icon='fa-database',
-        icon="fa-cog")
 
 
 class CssTemplateModelView(SupersetModelView, DeleteMixin):
