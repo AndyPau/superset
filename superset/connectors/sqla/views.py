@@ -1,7 +1,10 @@
+"""Views used by the SqlAlchemy connector"""
 import logging
 
-from flask import Markup, flash
-from flask_appbuilder import CompactCRUDMixin
+from past.builtins import basestring
+
+from flask import Markup, flash, redirect
+from flask_appbuilder import CompactCRUDMixin, expose
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 import sqlalchemy as sa
 
@@ -9,6 +12,7 @@ from flask_babel import lazy_gettext as _
 from flask_babel import gettext as __
 
 from superset import appbuilder, db, utils, security, sm
+from superset.utils import has_access
 from superset.views.base import (
     SupersetModelView, ListWidgetWithCheckboxes, DeleteMixin, DatasourceFilter,
     get_datasource_exist_error_mgs,
@@ -129,13 +133,13 @@ appbuilder.add_view_no_menu(SqlMetricInlineView)
 class TableModelView(SupersetModelView, DeleteMixin):  # noqa
     datamodel = SQLAInterface(models.SqlaTable)
     list_columns = [
-        'link', 'database', 'is_featured',
+        'link', 'database',
         'changed_by_', 'changed_on_']
     order_columns = [
-        'link', 'database', 'is_featured', 'changed_on_']
+        'link', 'database', 'changed_on_']
     add_columns = ['database', 'schema', 'table_name']
     edit_columns = [
-        'table_name', 'sql', 'is_featured', 'filter_select_enabled',
+        'table_name', 'sql', 'filter_select_enabled',
         'fetch_values_predicate', 'database', 'schema',
         'description', 'owner',
         'main_dttm_col', 'default_endpoint', 'offset', 'cache_timeout']
@@ -168,7 +172,6 @@ class TableModelView(SupersetModelView, DeleteMixin):  # noqa
         'changed_by_': _("Changed By"),
         'database': _("Database"),
         'changed_on_': _("Last Changed"),
-        'is_featured': _("Is Featured"),
         'filter_select_enabled': _("Enable Filter Select"),
         'schema': _("Schema"),
         'default_endpoint': _("Default Endpoint"),
@@ -198,20 +201,30 @@ class TableModelView(SupersetModelView, DeleteMixin):  # noqa
                 "database connection, schema, and "
                 "table name".format(table.name))
 
-    def post_add(self, table):
+    def post_add(self, table, flash_message=True):
         table.fetch_metadata()
         security.merge_perm(sm, 'datasource_access', table.get_perm())
         if table.schema:
             security.merge_perm(sm, 'schema_access', table.schema_perm)
 
-        flash(_(
-            "The table was created. As part of this two phase configuration "
-            "process, you should now click the edit button by "
-            "the new table to configure it."),
-            "info")
+        if flash_message:
+            flash(_(
+                "The table was created. "
+                "As part of this two phase configuration "
+                "process, you should now click the edit button by "
+                "the new table to configure it."), "info")
 
     def post_update(self, table):
-        self.post_add(table)
+        self.post_add(table, flash_message=False)
+
+    @expose('/edit/<pk>', methods=['GET', 'POST'])
+    @has_access
+    def edit(self, pk):
+        """Simple hack to redirect to explore view after saving"""
+        resp = super(TableModelView, self).edit(pk)
+        if isinstance(resp, basestring):
+            return resp
+        return redirect('/superset/explore/table/{}/'.format(pk))
 
 appbuilder.add_view(
     TableModelView,
