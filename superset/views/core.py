@@ -169,8 +169,8 @@ def generate_download_headers(extension):
 class DatabaseView(SupersetModelView, DeleteMixin):  # noqa
     datamodel = SQLAInterface(models.Database)
     list_columns = [
-        'verbose_name', 'backend', 'allow_run_sync', 'allow_run_async',
-        'allow_dml', 'creator', 'changed_on_', 'database_name']
+        'database_name', 'backend', 'allow_run_sync', 'allow_run_async',
+        'allow_dml', 'creator', 'modified']
     add_columns = [
         'database_name', 'sqlalchemy_uri', 'cache_timeout', 'extra',
         'expose_in_sqllab', 'allow_run_sync', 'allow_run_async',
@@ -363,20 +363,11 @@ class SliceModelView(SupersetModelView, DeleteMixin):  # noqa
     @expose('/add', methods=['GET', 'POST'])
     @has_access
     def add(self):
-        widget = self._add()
-        if not widget:
-            return redirect(self.get_redirect())
-
-        sources = ConnectorRegistry.sources
-        for source in sources:
-            ds = db.session.query(ConnectorRegistry.sources[source]).first()
-            if ds is not None:
-                url = "/{}/list/".format(ds.baselink)
-                msg = _("Click on a {} link to create a Slice".format(source))
-                break
-
-        redirect_url = "/r/msg/?url={}&msg={}".format(url, msg)
-        return redirect(redirect_url)
+        flash(__(
+            "To create a new slice, you can open a data source "
+            "through the `Sources` menu, or alter an existing slice "
+            "from the `Slices` menu"), "info")
+        return redirect('/superset/welcome')
 
 appbuilder.add_view(
     SliceModelView,
@@ -1351,6 +1342,7 @@ class Superset(BaseSupersetView):
             engine.connect()
             return json.dumps(engine.table_names(), indent=4)
         except Exception as e:
+            logging.exception(e)
             return json_error_response((
                 "Connection failed!\n\n"
                 "The error message returned was:\n{}").format(e))
@@ -1399,6 +1391,15 @@ class Superset(BaseSupersetView):
             })
         return json_success(
             json.dumps(payload, default=utils.json_int_dttm_ser))
+
+    @api
+    @has_access_api
+    @expose("/csrf_token/", methods=['GET'])
+    def csrf_token(self):
+        return Response(
+            self.render_template('superset/csrf_token.json'),
+            mimetype='text/json',
+        )
 
     @api
     @has_access_api
