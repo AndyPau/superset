@@ -484,11 +484,12 @@ class PrestoEngineSpec(BaseEngineSpec):
 
     @classmethod
     def extract_error_message(cls, e):
-        if hasattr(e, 'orig') \
-           and type(e.orig).__name__ == 'DatabaseError' \
-           and isinstance(e.orig[0], dict):
+        if (
+                hasattr(e, 'orig') and
+                type(e.orig).__name__ == 'DatabaseError' and
+                isinstance(e.orig[0], dict)):
             error_dict = e.orig[0]
-            e = '{} at {}: {}'.format(
+            return '{} at {}: {}'.format(
                 error_dict['errorName'],
                 error_dict['errorLocation'],
                 error_dict['message']
@@ -649,6 +650,12 @@ class HiveEngineSpec(PrestoEngineSpec):
     def fetch_result_sets(cls, db, datasource_type, force=False):
         return BaseEngineSpec.fetch_result_sets(
             db, datasource_type, force=force)
+
+    @classmethod
+    def adjust_database_uri(cls, uri, selected_schema=None):
+        if selected_schema:
+            uri.database = selected_schema
+        return uri
 
     @classmethod
     def progress(cls, logs):
